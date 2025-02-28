@@ -1,0 +1,235 @@
+{
+    "annotations": {
+      "list": []
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 1,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+      {
+        "title": "Loan Processing Overview",
+        "type": "row",
+        "collapsed": false,
+        "panels": [
+          {
+            "id": 1,
+            "title": "Total Loan Requests",
+            "type": "stat",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "sum(loan_requests_total)",
+                "legendFormat": "Total Requests"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Request Status Distribution",
+            "type": "piechart",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "sum by (status) (loan_requests_total)",
+                "legendFormat": "{{status}}"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Task Processing",
+        "type": "row",
+        "collapsed": false,
+        "panels": [
+          {
+            "id": 3,
+            "title": "Task Latency",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "rate(task_latency_seconds_sum[5m]) / rate(task_latency_seconds_count[5m])",
+                "legendFormat": "{{task_name}}"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "s",
+                "label": "Duration"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Queue Sizes",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "queue_size",
+                "legendFormat": "{{queue_name}}"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Service Health",
+        "type": "row",
+        "collapsed": false,
+        "panels": [
+          {
+            "id": 5,
+            "title": "Service Response Times",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])",
+                "legendFormat": "{{service}} - {{endpoint}}"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Error Rates",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{status=~\"5.*\"}[5m])",
+                "legendFormat": "{{service}}"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Business Metrics",
+        "type": "row",
+        "collapsed": false,
+        "panels": [
+          {
+            "id": 7,
+            "title": "Loan Amount Distribution",
+            "type": "heatmap",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "sum(rate(loan_amount_euros_bucket[5m])) by (le)",
+                "format": "heatmap"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Approval Rate",
+            "type": "gauge",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "sum(loan_requests_total{status=\"APPROVED\"}) / sum(loan_requests_total)",
+                "legendFormat": "Approval Rate"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "max": 1,
+                "min": 0,
+                "thresholds": {
+                  "mode": "percentage",
+                  "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "yellow", "value": 50 },
+                    { "color": "green", "value": 80 }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "title": "System Resources",
+        "type": "row",
+        "collapsed": false,
+        "panels": [
+          {
+            "id": 9,
+            "title": "Memory Usage",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "process_resident_memory_bytes",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "bytes",
+                "label": "Memory"
+              }
+            ]
+          },
+          {
+            "id": 10,
+            "title": "CPU Usage",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+              {
+                "expr": "rate(process_cpu_seconds_total[5m])",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "percentunit",
+                "label": "CPU Usage"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 38,
+    "style": "dark",
+    "tags": ["loan-processing"],
+    "templating": {
+      "list": [
+        {
+          "name": "service",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(service)"
+        }
+      ]
+    },
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "Loan Processing Dashboard",
+    "version": 1
+  }

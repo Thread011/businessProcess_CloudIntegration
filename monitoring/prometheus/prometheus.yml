@@ -1,0 +1,60 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+# Alertmanager configuration (if needed)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Rule files
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Loan Processing Services
+  - job_name: 'loan_services'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+        - 'loan-request:8000'
+        - 'credit-check:8001'
+        - 'property-evaluation:8002'
+        - 'decision:8003'
+        - 'notification:8004'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):.*'
+        target_label: service
+        replacement: '$1'
+
+  # Celery Workers
+  - job_name: 'celery'
+    static_configs:
+      - targets:
+        - 'celery-worker:8000'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # RabbitMQ
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    metrics_path: '/metrics'
+    scrape_interval: 10s

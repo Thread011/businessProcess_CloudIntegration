@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: credit-check-service
+  namespace: loan-system
+  labels:
+    app: credit-check-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: credit-check-service
+  template:
+    metadata:
+      labels:
+        app: credit-check-service
+    spec:
+      containers:
+      - name: credit-check-service
+        image: localhost/credit-check-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: loan-system-config
+        - secretRef:
+            name: loan-system-secrets
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "300m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: credit-check-service
+  namespace: loan-system
+spec:
+  selector:
+    app: credit-check-service
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

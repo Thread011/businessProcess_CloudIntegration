@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: loan-system
+  labels:
+    app: celery-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+      - name: celery-worker
+        image: localhost/celery-worker:latest
+        imagePullPolicy: IfNotPresent
+        command: ["celery", "-A", "common.celery_tasks", "worker", "--loglevel=info", "-Q", "celery,loan_request,credit_check,property_evaluation,decision,notification"]
+        envFrom:
+        - configMapRef:
+            name: loan-system-config
+        - secretRef:
+            name: loan-system-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command: ["celery", "-A", "common.celery_tasks", "inspect", "ping"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          exec:
+            command: ["celery", "-A", "common.celery_tasks", "inspect", "ping"]
+          initialDelaySeconds: 15
+          periodSeconds: 30

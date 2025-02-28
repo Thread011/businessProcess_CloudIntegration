@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+  # Message Broker
+  rabbitmq:
+      image: rabbitmq:3-management
+      ports:
+        - "5673:5672"
+        - "15673:15672"
+      healthcheck:
+        test: ["CMD", "rabbitmqctl", "node_health_check"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+
+  # Cache and Results Backend
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: .
+      dockerfile: docker/celery/Dockerfile
+    command: celery -A common.celery_tasks worker --loglevel=info -Q celery,loan_request,credit_check,property_evaluation,decision,notification
+    depends_on:
+      - rabbitmq
+      - redis
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "common.celery_tasks", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Monitoring Stack
+  prometheus:
+    build:
+      context: .
+      dockerfile: docker/prometheus/Dockerfile
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+    depends_on:
+      - loan-request-service
+      - credit-check-service
+      - property-evaluation-service
+      - decision-service
+      - notification-service
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    depends_on:
+      - prometheus
+
+  # Application Services
+  loan-request-service:
+    build:
+      context: .
+      dockerfile: services/loan_request/Dockerfile
+    ports:
+      - "18010:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_VHOST=/
+      - REDIS_HOST=redis
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  credit-check-service:
+    build:
+      context: .
+      dockerfile: services/credit_check/Dockerfile
+    ports:
+      - "18011:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_VHOST=/
+      - REDIS_HOST=redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  property-evaluation-service:
+    build:
+      context: .
+      dockerfile: services/property_evaluation/Dockerfile
+    ports:
+      - "18012:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+      - MARKET_DATA_API_KEY=${MARKET_DATA_API_KEY}
+    depends_on:
+      - rabbitmq
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  decision-service:
+    build:
+      context: .
+      dockerfile: services/decision/Dockerfile
+    ports:
+      - "18013:8000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8000
+    depends_on:
+      - rabbitmq
+      - redis
+      - notification-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    ports:
+      - "18014:8000"
+    environment:
+      - RABBITMQ_HOST=${RABBITMQ_HOST:-rabbitmq}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      - REDIS_HOST=redis
+      - SMTP_HOST=${SMTP_HOST:-smtp.example.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-notification@example.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-password}
+      - EMAIL_SENDER=${EMAIL_SENDER:-loan-system@example.com}
+    depends_on:
+      - rabbitmq
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  prometheus_data:
+  grafana_data:
