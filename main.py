@@ -149,6 +149,14 @@ def process_loan_request(profile_type="medium"):
     
     # Start WebSocket connection for notifications
     ws = start_websocket(request_id)
+    
+    # Show dashboard URL early
+    print("[*] Dashboard Access")
+    print("-"*60)
+    dashboard_url = f"{NOTIFICATION_SERVICE_URL}/dashboard?clientId={request_id}"
+    print(f"[>] View your application status in real-time:")
+    print(f"    {dashboard_url}\n")
+    
     print("[*] Processing request (5 seconds)...")
     time.sleep(5)
     
@@ -271,13 +279,6 @@ def process_loan_request(profile_type="medium"):
         print("[+] Notification sent successfully\n")
     else:
         print(f"[X] Notification failed: {response.text}\n")
-    
-    # 6. Show dashboard URL
-    print("[6] Dashboard Access")
-    print("-"*60)
-    dashboard_url = f"{NOTIFICATION_SERVICE_URL}/dashboard?clientId={request_id}"
-    print(f"[>] View your application status:")
-    print(f"    {dashboard_url}\n")
     
     # Wait for notifications
     print("[*] Waiting for notifications...")

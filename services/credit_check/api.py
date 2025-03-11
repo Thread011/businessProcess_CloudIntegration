@@ -5,6 +5,8 @@ from datetime import datetime
 import logging
 import aio_pika
 import asyncio
+import random
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,112 @@ def get_redis_client():
 
 redis_client = get_redis_client()
 
+def calculate_credit_score(client_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Calculate a realistic credit score based on multiple financial factors.
+    
+    The score is calculated using:
+    - Income to loan ratio
+    - Debt-to-income ratio
+    - Loan duration (longer terms are slightly riskier)
+    - Previous payment history (simulated)
+    
+    Returns a dictionary with the credit score and detailed factors.
+    """
+    try:
+        # Extract required data
+        monthly_income = float(client_data.get('monthly_income', 0))
+        monthly_expenses = float(client_data.get('monthly_expenses', 0))
+        loan_amount = float(client_data.get('loan_amount', 0))
+        loan_duration_years = int(client_data.get('loan_duration_years', 20))
+        
+        # Calculate base metrics
+        dti_ratio = monthly_expenses / monthly_income if monthly_income > 0 else 1.0
+        income_to_loan_ratio = (monthly_income * 12 * loan_duration_years) / loan_amount if loan_amount > 0 else 0
+        
+        # Base score starts at 500
+        base_score = 500
+        
+        # Income to loan ratio factor (0-200 points)
+        # Higher ratio is better - means income is high relative to loan
+        if income_to_loan_ratio >= 2.0:
+            income_factor = 200  # Excellent
+        elif income_to_loan_ratio >= 1.5:
+            income_factor = 150  # Very good
+        elif income_to_loan_ratio >= 1.0:
+            income_factor = 100  # Good
+        elif income_to_loan_ratio >= 0.75:
+            income_factor = 50   # Fair
+        else:
+            income_factor = 0    # Poor
+            
+        # DTI ratio factor (0-200 points)
+        # Lower ratio is better
+        if dti_ratio <= 0.25:
+            dti_factor = 200     # Excellent
+        elif dti_ratio <= 0.33:
+            dti_factor = 150     # Very good
+        elif dti_ratio <= 0.43:
+            dti_factor = 100     # Good
+        elif dti_ratio <= 0.50:
+            dti_factor = 50      # Fair
+        else:
+            dti_factor = 0       # Poor
+            
+        # Loan duration factor (0-50 points)
+        # Shorter terms are slightly better
+        if loan_duration_years <= 10:
+            duration_factor = 50  # Excellent
+        elif loan_duration_years <= 15:
+            duration_factor = 40  # Very good
+        elif loan_duration_years <= 20:
+            duration_factor = 30  # Good
+        elif loan_duration_years <= 25:
+            duration_factor = 20  # Fair
+        else:
+            duration_factor = 10  # Poor
+            
+        # Payment history factor (0-150 points)
+        # In a real system, this would come from credit bureau data
+        # For simulation, we'll generate a semi-random score based on other factors
+        # Higher income to loan ratio and lower DTI tend to correlate with better payment history
+        payment_history_base = ((income_factor / 200) * 0.7 + (dti_factor / 200) * 0.3) * 150
+        # Add some randomness to simulate real-world variability
+        payment_history_factor = max(0, min(150, payment_history_base + random.randint(-20, 20)))
+        
+        # Calculate final score (range 500-900)
+        credit_score = int(base_score + income_factor + dti_factor + duration_factor + payment_history_factor)
+        
+        # Cap the score at 900
+        credit_score = min(900, credit_score)
+        
+        return {
+            "credit_score": credit_score,
+            "dti_ratio": dti_ratio,
+            "income_to_loan_ratio": income_to_loan_ratio,
+            "factors": {
+                "income_factor": income_factor,
+                "dti_factor": dti_factor,
+                "duration_factor": duration_factor,
+                "payment_history_factor": payment_history_factor
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error calculating credit score: {str(e)}")
+        # Return a default score if calculation fails
+        return {
+            "credit_score": 550,  # Below threshold
+            "dti_ratio": 1.0,
+            "income_to_loan_ratio": 0,
+            "factors": {
+                "income_factor": 0,
+                "dti_factor": 0,
+                "duration_factor": 0,
+                "payment_history_factor": 0
+            },
+            "error": str(e)
+        }
+
 async def process_credit_check(message_data: dict):
     try:
         logger.info(f"Starting credit check process with data: {message_data}")
@@ -36,18 +144,21 @@ async def process_credit_check(message_data: dict):
         if not redis_client:
             raise Exception("Redis client is not available")
         
-        # Process credit check with data from message
-        credit_score = 700  # Simulated score
-        monthly_income = float(message_data['monthly_income'])
-        monthly_expenses = float(message_data['monthly_expenses'])
-        dti_ratio = monthly_expenses / monthly_income
+        # Calculate credit score with realistic algorithm
+        credit_assessment = calculate_credit_score(message_data)
+        credit_score = credit_assessment["credit_score"]
+        dti_ratio = credit_assessment["dti_ratio"]
+        
+        # Determine eligibility based on credit score and DTI ratio
+        is_eligible = credit_score >= 650 and dti_ratio <= 0.43
         
         result = {
             "request_id": request_id,
             "credit_score": credit_score,
             "dti_ratio": dti_ratio,
-            "is_eligible": credit_score >= 650 and dti_ratio <= 0.43,
+            "is_eligible": is_eligible,
             "status": "COMPLETED",
+            "assessment_details": credit_assessment["factors"],
             "timestamp": datetime.now().isoformat()
         }
         
@@ -59,6 +170,9 @@ async def process_credit_check(message_data: dict):
             json.dumps(result)
         )
         logger.info(f"Credit check completed for request ID: {request_id}")
+        
+        # Publish the result to RabbitMQ
+        await publish_credit_check_result(result)
         
         return result
         
@@ -80,6 +194,43 @@ async def process_credit_check(message_data: dict):
             except RedisError as re:
                 logger.error(f"Failed to store error result in Redis: {str(re)}")
         raise
+
+async def publish_credit_check_result(result: dict):
+    """Publish credit check result to RabbitMQ."""
+    try:
+        connection = await aio_pika.connect_robust(
+            host="rabbitmq",
+            port=5672,
+            login="guest",
+            password="guest"
+        )
+        
+        async with connection:
+            channel = await connection.channel()
+            exchange = await channel.declare_exchange(
+                "loan_processing",
+                aio_pika.ExchangeType.TOPIC,
+                durable=True
+            )
+            
+            message = aio_pika.Message(
+                body=json.dumps({
+                    "type": "CREDIT_CHECK_COMPLETED",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }).encode(),
+                content_type="application/json",
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+            )
+            
+            await exchange.publish(
+                message,
+                routing_key="credit.check.completed"
+            )
+            
+            logger.info(f"Published credit check result for request {result['request_id']}")
+    except Exception as e:
+        logger.error(f"Failed to publish credit check result: {str(e)}")
 
 async def process_message(message: aio_pika.IncomingMessage):
     async with message.process():

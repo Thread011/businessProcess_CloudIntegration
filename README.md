@@ -1,384 +1,292 @@
-# Loan Processing Microservices System
+# Système de Traitement de Prêts Immobiliers
 
-A distributed loan processing system built with microservices architecture, using FastAPI, Celery, RabbitMQ, and Redis.
+Un système distribué de traitement de prêts immobiliers construit avec une architecture microservices, utilisant FastAPI, Celery, RabbitMQ et Redis.
 
-## Prerequisites
+## Table des matières
 
-- Docker and Docker Compose
+- [Aperçu du projet](#aperçu-du-projet)
+- [Architecture du système](#architecture-du-système)
+- [Prérequis](#prérequis)
+- [Configuration de l'environnement](#configuration-de-lenvironnement)
+- [Exécution du système (Docker Compose)](#exécution-du-système-docker-compose)
+- [Flux de traitement des demandes de prêt](#flux-de-traitement-des-demandes-de-prêt)
+- [Services et fonctionnalités](#services-et-fonctionnalités)
+- [Exemple d'utilisation](#exemple-dutilisation)
+- [Surveillance et monitoring](#surveillance-et-monitoring)
+- [Dépannage](#dépannage)
+
+## Aperçu du projet
+
+Ce projet est un système de traitement de prêts immobiliers qui permet d'automatiser l'évaluation et la décision d'octroi de prêts. Le système est conçu avec une architecture microservices pour assurer la scalabilité, la résilience et la maintenance facilitée.
+
+Principales fonctionnalités :
+- Soumission de demandes de prêt
+- Vérification automatique de solvabilité
+- Évaluation des biens immobiliers
+- Prise de décision automatisée
+- Notifications en temps réel
+- Tableau de bord pour le suivi des demandes
+
+## Architecture du système
+
+Le système est composé des microservices suivants :
+
+1. **Service de Demande de Prêt** : Point d'entrée pour les nouvelles demandes
+2. **Service de Vérification de Crédit** : Évalue la solvabilité du demandeur
+3. **Service d'Évaluation Immobilière** : Évalue la valeur et les risques liés au bien
+4. **Service de Décision** : Détermine l'approbation ou le rejet du prêt
+5. **Service de Notification** : Envoie des notifications aux clients
+
+Technologies utilisées :
+- **FastAPI** : Framework API REST haute performance
+- **Celery** : Système de files d'attente et de tâches distribuées
+- **RabbitMQ** : Broker de messages pour la communication entre services
+- **Redis** : Cache et backend pour les résultats Celery
+- **Docker & Docker Compose** : Conteneurisation et orchestration locale
+- **Prometheus & Grafana** : Surveillance et visualisation des métriques
+
+## Prérequis
+
+- Docker et Docker Compose
 - Git
-- Make (optional, for Makefile usage)
-- Minikube (for Kubernetes deployment)
-- kubectl (for Kubernetes deployment)
+- Make (optionnel, pour l'utilisation du Makefile)
 
-## Environment Setup
+## Configuration de l'environnement
 
-1. Clone the repository:
+1. Cloner le dépôt :
 
 ```bash
-git clone <repository-url>
-cd loan-processing-system
+git clone <url-du-dépôt>
+cd projectCloudMetier
 ```
 
-2. Create a `.env` file in the project root:
+2. Créer un fichier `.env` à la racine du projet :
 
 ```bash
 cp .env.example .env
 ```
 
-3. Configure your environment variables (see Environment Variables section below)
+3. Configurer les variables d'environnement selon vos besoins
 
-## Running the System (Docker Compose)
+## Exécution du système (Docker Compose)
 
-1. Start all services:
+1. Démarrer tous les services :
 
 ```bash
 docker-compose up -d
 ```
 
-2. Check service health:
+2. Vérifier l'état des services :
 
 ```bash
 docker-compose ps
 ```
 
-3. Access service endpoints:
-   - Loan Request Service: http://localhost:8000
-   - Credit Check Service: http://localhost:8001
-   - Property Evaluation Service: http://localhost:8002
-   - Decision Service: http://localhost:8003
-   - Notification Service: http://localhost:8004
+3. Accéder aux points d'entrée des services :
+   - Service de Demande de Prêt : http://localhost:18010
+   - Service de Vérification de Crédit : http://localhost:18011
+   - Service d'Évaluation Immobilière : http://localhost:18012
+   - Service de Décision : http://localhost:18013
+   - Service de Notification : http://localhost:18014
+   - Tableau de bord Grafana : http://localhost:3001 (admin/admin)
+   - Interface RabbitMQ : http://localhost:15673 (guest/guest)
 
-## Kubernetes Deployment Guide
-
-This section provides step-by-step instructions for building Docker images and deploying the Loan Processing System on a Kubernetes cluster using Minikube.
-
-### Setting Up Minikube
-
-#### 1. Start Minikube with appropriate resources
+4. Exécuter le client de test pour simuler des demandes de prêt :
 
 ```bash
-minikube start --cpus=2 --memory=4096 --disk-size=20g --driver=docker
+python main.py
 ```
 
-#### 2. Enable required Minikube addons
+## Flux de traitement des demandes de prêt
+
+Le processus de traitement d'une demande de prêt suit les étapes suivantes :
+
+1. **Soumission de la demande** : Le client soumet une demande via le Service de Demande de Prêt
+2. **Vérification de crédit** : Le Service de Vérification de Crédit évalue la solvabilité du demandeur
+3. **Évaluation du bien** : Le Service d'Évaluation Immobilière estime la valeur du bien et les risques associés
+4. **Prise de décision** : Le Service de Décision analyse toutes les informations et détermine si le prêt est approuvé
+5. **Notification** : Le Service de Notification informe le client du résultat
+
+Chaque étape du processus est exécutée de manière asynchrone grâce à Celery et RabbitMQ, permettant un traitement efficace et scalable des demandes.
+
+## Services et fonctionnalités
+
+### Service de Demande de Prêt
+- Accepte les nouvelles demandes de prêt
+- Valide les données d'entrée
+- Initie le flux de traitement
+
+### Service de Vérification de Crédit
+- Calcule le score de crédit du demandeur
+- Évalue le ratio dette/revenu (DTI)
+- Détermine l'éligibilité financière
+
+### Service d'Évaluation Immobilière
+- Estime la valeur du bien immobilier
+- Calcule le ratio prêt/valeur (LTV)
+- Évalue les risques liés à la propriété
+
+### Service de Décision
+- Analyse toutes les données collectées
+- Applique les règles métier pour la décision
+- Calcule le taux d'intérêt proposé
+- Détermine l'approbation, le rejet ou la nécessité d'une révision manuelle
+
+### Service de Notification
+- Envoie des notifications par email
+- Fournit des mises à jour en temps réel via WebSocket
+- Offre un tableau de bord pour suivre l'état des demandes
+
+## Exemple d'utilisation
+
+Le système permet de traiter différents profils financiers pour les demandes de prêt. Voici un exemple d'utilisation avec le script `main.py` qui simule trois profils financiers différents : pauvre, moyen et riche.
+
+### Données d'entrée (Exemple pour un profil moyen)
+
+```python
+# Extrait de main.py - Création d'une demande de prêt pour un profil moyen
+loan_request_data = {
+    "client_name": "John Doe (Medium)",
+    "email": "john.doe.medium@example.com",
+    "phone": "+33123456789",
+    "birth_date": "1995-03-11T00:00:00",  # 30 ans
+    "nationality": "French",
+    "current_address": {
+        "street": "123 Rue de Paris",
+        "city": "Paris",
+        "postal_code": "75001",
+        "country": "France"
+    },
+    "monthly_income": "6250",
+    "monthly_expenses": "2000",
+    "loan_amount": "250000",
+    "loan_purpose": "PURCHASE",
+    "loan_duration_years": 20,
+    "employment_info": {
+        "employer_name": "Tech Corp",
+        "position": "Engineer",
+        "contract_type": "CDI",
+        "years_employed": 5,
+        "annual_income": "75000"
+    },
+    "property_info": {
+        "type": "APARTMENT",
+        "address": {
+            "street": "456 Avenue des Champs-Élysées",
+            "city": "Paris",
+            "postal_code": "75008",
+            "country": "France"
+        },
+        "surface_area": 85,
+        "rooms": 3,
+        "construction_year": 2010,
+        "description": "Modern apartment in prime location",
+        "condition": "EXCELLENT",
+        "estimated_value": "450000"
+    }
+}
+```
+
+### Résultat dans le terminal
+
+Lorsque vous exécutez `python main.py`, le système traite les demandes de prêt et affiche les résultats dans le terminal. Voici un exemple de sortie pour un profil moyen :
+
+```
+================================================================================
+                     Loan Processing for MEDIUM Profile                      
+================================================================================
+
+[1] Submitting Loan Request
+------------------------------------------------------------
+[+] Request submitted successfully
+[>] Request ID: 8f7d3a2e-1b5c-4c6a-9d8f-0e7a6b5c4d3a
+
+[*] Dashboard Access
+------------------------------------------------------------
+[>] View your application status in real-time:
+    http://localhost:18014/dashboard?clientId=8f7d3a2e-1b5c-4c6a-9d8f-0e7a6b5c4d3a
+
+[*] Processing request (5 seconds)...
+
+[2] Credit Evaluation
+------------------------------------------------------------
+[>] Credit Score: 720
+[>] DTI Ratio: 0.32
+[>] Eligibility: Approved
+
+[3] Property Evaluation
+------------------------------------------------------------
+[>] Estimated Value: €450,000.00
+[>] Risk Level: LOW
+[>] LTV Ratio: 55.56%
+
+[4] Loan Decision
+------------------------------------------------------------
+[+] Decision request submitted successfully
+[>] Initial Status: PENDING
+[*] Waiting for decision processing (5 seconds)...
+[>] Decision: APPROVED
+[>] Interest Rate: 2.85%
+[>] Notes:
+    - Application meets all criteria
+    - Good credit history and stable income
+
+[5] Notification System
+------------------------------------------------------------
+[+] Notification sent successfully
+
+[*] Waiting for notifications...
+
+[!] New Notification:
+  > Subject: Loan Application Update
+  > Message: Your loan application is being processed
+  > Details:
+    - client_name: John Doe (Medium)
+    - loan_amount: 250000
+  > Time: 10:15:23
+
+============================================================
+           Process Complete for MEDIUM Profile            
+============================================================
+```
+
+Le système traite également des profils financiers "pauvre" et "riche" avec des résultats différents en fonction des critères d'évaluation.
+
+## Surveillance et monitoring
+
+Le système inclut une pile de surveillance complète :
+
+- **Prometheus** : Collecte des métriques de performance
+- **Grafana** : Visualisation des métriques avec des tableaux de bord préconfigurés
+
+Métriques surveillées :
+- Temps de réponse des services
+- Taux d'erreur
+- Utilisation des ressources
+- Nombre de demandes traitées
+- Temps de traitement par étape
+
+## Dépannage
+
+### Problèmes courants et solutions
+
+1. **Les services ne démarrent pas**
+   - Vérifier les logs avec `docker-compose logs <service-name>`
+   - S'assurer que RabbitMQ et Redis sont en cours d'exécution
+
+2. **Erreurs de communication entre services**
+   - Vérifier que les variables d'environnement sont correctement configurées
+   - S'assurer que RabbitMQ est accessible
+
+3. **Performances lentes**
+   - Augmenter le nombre de workers Celery
+   - Vérifier l'utilisation des ressources avec Grafana
+
+### Commandes utiles
 
 ```bash
-minikube addons enable ingress
-minikube addons enable metrics-server
-minikube addons enable dashboard
-```
-
-#### 3. Configure Docker to use Minikube's Docker daemon
-
-```bash
-# For Linux/macOS
-eval $(minikube -p minikube docker-env)
-
-# For PowerShell
-& minikube -p minikube docker-env | Invoke-Expression
-```
-
-### Building Docker Images
-
-#### 1. Build the Loan Request Service Image
-
-```bash
-docker build -t localhost/loan-request-service:latest -f ../services/loan_request/Dockerfile ..
-```
-
-#### 2. Build the Credit Check Service Image
-
-```bash
-docker build -t localhost/credit-check-service:latest -f ../services/credit_check/Dockerfile ..
-```
-
-#### 3. Build the Property Evaluation Service Image
-
-```bash
-docker build -t localhost/property-evaluation-service:latest -f ../services/property_evaluation/Dockerfile ..
-```
-
-#### 4. Build the Decision Service Image
-
-```bash
-docker build -t localhost/decision-service:latest -f ../services/decision/Dockerfile ..
-```
-
-#### 5. Build the Notification Service Image
-
-```bash
-docker build -t localhost/notification-service:latest -f ../services/notification/Dockerfile ..
-```
-
-#### 6. Build the Celery Worker Image
-
-```bash
-docker build -t localhost/celery-worker:latest -f ../docker/celery/Dockerfile ..
-```
-
-#### 7. Verify Docker Images
-
-```bash
-docker images
-```
-
-### Deploying to Kubernetes
-
-#### 1. Create Namespace
-
-```bash
-kubectl apply -f kubernetes/manifests/namespace.yaml
-```
-
-#### 2. Create Persistent Volumes
-
-```bash
-kubectl apply -f kubernetes/manifests/persistent-volumes.yaml
-```
-
-#### 3. Create ConfigMaps and Secrets
-
-```bash
-kubectl apply -f kubernetes/manifests/configmap.yaml
-kubectl apply -f kubernetes/manifests/secrets.yaml
-```
-
-#### 4. Deploy Infrastructure Components
-
-```bash
-kubectl apply -f kubernetes/manifests/infrastructure.yaml
-```
-
-Wait for infrastructure components to be ready (approximately 15 seconds)
-
-```bash
-kubectl get pods -n loan-system
-```
-
-#### 5. Deploy Monitoring Stack
-
-```bash
-kubectl apply -f kubernetes/manifests/monitoring.yaml
-```
-
-#### 6. Deploy Application Services
-
-```bash
-# Deploy services individually
-kubectl apply -f kubernetes/manifests/loan-request-service.yaml
-kubectl apply -f kubernetes/manifests/credit-check-service.yaml
-kubectl apply -f kubernetes/manifests/property-evaluation-service.yaml
-kubectl apply -f kubernetes/manifests/decision-service.yaml
-kubectl apply -f kubernetes/manifests/notification-service.yaml
-kubectl apply -f kubernetes/manifests/celery-worker.yaml
-
-# Or deploy multiple services at once
-kubectl apply -f kubernetes/manifests/credit-check-service.yaml -f kubernetes/manifests/property-evaluation-service.yaml -f kubernetes/manifests/decision-service.yaml -f kubernetes/manifests/notification-service.yaml -f kubernetes/manifests/celery-worker.yaml
-```
-
-#### 7. Apply Network Policies
-
-```bash
-kubectl apply -f kubernetes/manifests/network-policies.yaml
-```
-
-#### 8. Configure Autoscaling
-
-```bash
-kubectl apply -f kubernetes/manifests/autoscaling.yaml
-```
-
-#### 9. Deploy Ingress
-
-```bash
-kubectl apply -f kubernetes/manifests/ingress.yaml
-```
-
-### Verifying the Deployment
-
-#### 1. Check Pods Status
-
-```bash
-kubectl get pods -n loan-system
-```
-
-#### 2. Check Services
-
-```bash
-kubectl get services -n loan-system
-```
-
-#### 3. Check Persistent Volume Claims
-
-```bash
-kubectl get pvc -n loan-system
-```
-
-#### 4. Check Horizontal Pod Autoscalers
-
-```bash
-kubectl get hpa -n loan-system
-```
-
-#### 5. Check Network Policies
-
-```bash
-kubectl get networkpolicies -n loan-system
-```
-
-#### 6. Check Ingress
-
-```bash
-kubectl get ingress -n loan-system
-```
-
-#### 7. Open Kubernetes Dashboard
-
-```bash
-minikube dashboard --url
-```
-
-### Accessing the Application
-
-#### Using Ingress (if configured)
-
-- Main application: http://loan-system.local
-- Monitoring: http://monitoring.loan-system.local
-
-#### Using Port Forwarding (without Ingress)
-
-```bash
-kubectl port-forward -n loan-system svc/loan-request-service 8000:8000
-```
-
-Then access the application at: http://localhost:8000
-
-### Monitoring the Application
-
-#### Access Grafana Dashboard
-
-```bash
-kubectl port-forward -n loan-system svc/grafana 3000:3000
-```
-
-Then access Grafana at: http://localhost:3000
-
-#### Access Prometheus Dashboard
-
-```bash
-kubectl port-forward -n loan-system svc/prometheus 9090:9090
-```
-
-Then access Prometheus at: http://localhost:9090
-
-### Troubleshooting
-
-#### Check Pod Logs
-
-```bash
-kubectl logs -n loan-system <pod-name>
-```
-
-#### Describe Pod for Detailed Information
-
-```bash
-kubectl describe pod -n loan-system <pod-name>
-```
-
-#### Restart a Deployment
-
-```bash
-kubectl rollout restart deployment -n loan-system <deployment-name>
-```
-
-### Cleanup
-
-#### Delete All Resources in the Namespace
-
-```bash
-kubectl delete namespace loan-system
-```
-
-#### Stop Minikube
-
-```bash
-minikube stop
-```
-
-## Monitoring (Docker Compose)
-
-- RabbitMQ Management: http://localhost:15672
-  - Username: guest
-  - Password: guest
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000
-  - Username: admin
-  - Password: admin
-
-## Shutting Down (Docker Compose)
-
-```bash
-docker-compose down
-```
-
-To remove all data (including volumes):
-
-```bash
-docker-compose down -v
-```
-
-## Environment Variables Explanation
-
-Here's a detailed explanation of the environment variables needed in your `.env` file:
-
-```env
-# Market Data API Configuration
-MARKET_DATA_API_KEY=your_api_key_here    # API key for property market data service
-
-# Email Service Configuration
-SMTP_HOST=smtp.example.com               # SMTP server hostname (e.g., smtp.gmail.com)
-SMTP_PORT=587                             # SMTP port (587 for TLS, 465 for SSL)
-SMTP_USERNAME=your_username               # SMTP account username
-SMTP_PASSWORD=your_password               # SMTP account password
-EMAIL_SENDER=noreply@yourdomain.com       # Email address used as sender
-
-# RabbitMQ Configuration (optional, defaults provided)
-RABBITMQ_USER=guest                       # RabbitMQ username
-RABBITMQ_PASSWORD=guest                   # RabbitMQ password
-RABBITMQ_HOST=rabbitmq                     # RabbitMQ hostname
-RABBITMQ_PORT=5672                         # RabbitMQ AMQP port
-RABBITMQ_VHOST=/                           # RabbitMQ virtual host
-
-# Redis Configuration (optional, defaults provided)
-REDIS_HOST=redis                           # Redis hostname
-REDIS_PORT=6379                            # Redis port
-REDIS_PASSWORD=                            # Redis password (if required)
-REDIS_DB=0                                 # Redis database number
-
-# Service Ports (optional, defaults provided)
-LOAN_REQUEST_PORT=8000                     # Loan Request Service port
-CREDIT_CHECK_PORT=8001                     # Credit Check Service port
-PROPERTY_EVAL_PORT=8002                     # Property Evaluation Service port
-DECISION_PORT=8003                          # Decision Service port
-NOTIFICATION_PORT=8004                      # Notification Service port
-
-# Monitoring Configuration (optional, defaults provided)
-PROMETHEUS_PORT=9090                        # Prometheus port
-GRAFANA_PORT=3000                           # Grafana port
-GRAFANA_ADMIN_PASSWORD=admin                # Grafana admin password
-```
-
-### Required Variables
-The following variables must be set for the system to function properly:
-- `MARKET_DATA_API_KEY`: For property valuation service
-- `SMTP_*` variables: For email notifications
-- `EMAIL_SENDER`: For notification service
-
-### Optional Variables
-The other variables have default values but can be customized if needed:
-- RabbitMQ configuration
-- Redis configuration
-- Service ports
-- Monitoring configuration
-
-You can create a `.env.example` file with these variables (using dummy values) to serve as a template for other developers.
+# Voir les logs d'un service
+docker-compose logs -f loan-request-service
+
+# Redémarrer un service
+docker-compose restart credit-check-service
